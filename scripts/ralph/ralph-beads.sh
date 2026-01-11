@@ -357,9 +357,8 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     BEAD_DETAILS=$(bd show "$BEAD_ID" 2>/dev/null)
     BEAD_DESCRIPTION=$(echo "$BEAD_DETAILS" | sed -n '/Description:/,/Acceptance Criteria/p' | head -n -1 | tail -n +2)
     
-    # Create temporary files for agent
+    # Create temporary file for bead details
     TEMP_BEAD=$(mktemp)
-    TEMP_PROMPT=$(mktemp)
     
     # Create bead file with full details
     cat > "$TEMP_BEAD" << EOF
@@ -376,15 +375,11 @@ for i in $(seq 1 $MAX_ITERATIONS); do
 4. Close the bead when done (bd update $BEAD_ID --status=closed --close_reason="...")
 EOF
     
-    # Create prompt with bead ID injected
-    sed "s/\[TO_BE_INJECTED\]/$BEAD_ID/g" "$PROMPT_FILE" | \
-        sed "s/\[TO_BE_INJECTED\]/$BEAD_TITLE/g" | \
-        sed "s/\[TO_BE_INJECTED\]/$BEAD_DESCRIPTION/g" > "$TEMP_PROMPT"
-    
-    # Run agent with the bead
-    OUTPUT=$(run_agent "$(cat "$TEMP_PROMPT")" "$TEMP_BEAD" "$PROGRESS_FILE")
-    
-    rm -f "$TEMP_BEAD" "$TEMP_PROMPT"
+    # Run agent with the bead (bead details are in TEMP_BEAD file)
+    # The prompt template references [TO_BE_INJECTED] but bead details are passed via file
+    OUTPUT=$(run_agent "$(cat "$PROMPT_FILE")" "$TEMP_BEAD" "$PROGRESS_FILE")
+
+    rm -f "$TEMP_BEAD"
     
     # Check if bead was closed by agent
     # Look for "CLOSED" in the status indicator: [● P1 · CLOSED]
