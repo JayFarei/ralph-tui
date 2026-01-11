@@ -1127,3 +1127,31 @@ Started: Sun 11 Jan 10:55:32 GMT 2026
   - The convertTasksWithDependencyStatus() function recomputes actionable/blocked status from fresh data
   - Keyboard shortcuts should be documented in both condensed footer and full help overlay for discoverability
 ---
+
+## 2026-01-11 - ralph-tui-45r.42
+- What was implemented:
+  - FEAT: Configure all settings from within the TUI
+  - New SettingsView component for viewing and modifying configuration
+  - Press ',' (comma) to open settings overlay from anywhere in the TUI
+  - Configurable settings: tracker, agent, maxIterations, iterationDelay, autoCommit
+  - Select/boolean fields cycle with Enter/Space/arrows
+  - Number fields enter edit mode for typing values with validation
+  - Form validation shows errors for invalid inputs (min/max range, number format)
+  - Changes saved to .ralph-tui.yaml with 's' key
+  - Settings marked with ⟳ indicate they require restart to take effect
+  - Added saveProjectConfig() and getProjectConfigPath() to config module
+  - Updated keyboard shortcuts in footer and help overlay
+- Files changed:
+  - src/tui/components/SettingsView.tsx (new) - Settings view overlay component
+  - src/tui/components/index.ts (updated) - Export SettingsView
+  - src/tui/components/RunApp.tsx (updated) - Added showSettings state, ',' key handler, SettingsView integration
+  - src/config/index.ts (updated) - Added saveProjectConfig(), getProjectConfigPath() functions
+  - src/commands/run.tsx (updated) - Load storedConfig, pass to RunAppWrapper, integrate with registries
+  - src/tui/theme.ts (updated) - Added ',' shortcut to keyboardShortcuts and fullKeyboardShortcuts
+- **Learnings:**
+  - Overlay component pattern: absolute positioning with semi-transparent background for modal UX
+  - Guard clause in parent keyboard handler prevents key capture when modal is active
+  - State synchronization: wrapper component holds local state for immediate updates, persists via callback
+  - Select fields cycle through options rather than opening dropdown (simpler TUI interaction model)
+  - Form edit mode needs character-by-character input handling via key.sequence
+---
