@@ -21,6 +21,8 @@ import { ProgressDashboard } from './ProgressDashboard.js';
 import { ConfirmationDialog } from './ConfirmationDialog.js';
 import { HelpOverlay } from './HelpOverlay.js';
 import { SettingsView } from './SettingsView.js';
+import { EpicLoaderOverlay } from './EpicLoaderOverlay.js';
+import type { EpicLoaderMode } from './EpicLoaderOverlay.js';
 import type { ExecutionEngine, EngineEvent, IterationResult } from '../../engine/index.js';
 import type { TrackerTask } from '../../plugins/trackers/types.js';
 import type { StoredConfig } from '../../config/types.js';
@@ -66,6 +68,16 @@ export interface RunAppProps {
   availableTrackers?: TrackerPluginMeta[];
   /** Callback when settings should be saved */
   onSaveSettings?: (config: StoredConfig) => Promise<void>;
+  /** Callback to load available epics for the epic loader */
+  onLoadEpics?: () => Promise<TrackerTask[]>;
+  /** Callback when user selects a new epic */
+  onEpicSwitch?: (epic: TrackerTask) => Promise<void>;
+  /** Callback when user enters a file path (json tracker) */
+  onFilePathSwitch?: (path: string) => Promise<boolean>;
+  /** Current tracker type to determine epic loader mode */
+  trackerType?: string;
+  /** Current epic ID for highlighting in the loader */
+  currentEpicId?: string;
 }
 
 /**
@@ -196,6 +208,11 @@ export function RunApp({
   availableAgents = [],
   availableTrackers = [],
   onSaveSettings,
+  onLoadEpics,
+  onEpicSwitch,
+  onFilePathSwitch,
+  trackerType,
+  currentEpicId,
 }: RunAppProps): ReactNode {
   const { width, height } = useTerminalDimensions();
   const [tasks, setTasks] = useState<TaskItem[]>(() => {
@@ -236,6 +253,13 @@ export function RunApp({
   // Current task info for status display
   const [currentTaskId, setCurrentTaskId] = useState<string | undefined>(undefined);
   const [currentTaskTitle, setCurrentTaskTitle] = useState<string | undefined>(undefined);
+  // Epic loader overlay state
+  const [showEpicLoader, setShowEpicLoader] = useState(false);
+  const [epicLoaderEpics, setEpicLoaderEpics] = useState<TrackerTask[]>([]);
+  const [epicLoaderLoading, setEpicLoaderLoading] = useState(false);
+  const [epicLoaderError, setEpicLoaderError] = useState<string | undefined>(undefined);
+  // Determine epic loader mode based on tracker type
+  const epicLoaderMode: EpicLoaderMode = trackerType === 'json' ? 'file-prompt' : 'list';
 
   // Filter and sort tasks for display
   // Sort order: active → actionable → blocked → done → closed
@@ -463,6 +487,12 @@ export function RunApp({
         return;
       }
 
+      // When epic loader is showing, only Escape closes it
+      // Epic loader handles its own keyboard events via useKeyboard
+      if (showEpicLoader) {
+        return;
+      }
+
       switch (key.name) {
         case 'q':
           // Quit the application
@@ -576,6 +606,25 @@ export function RunApp({
           }
           break;
 
+        case 'l':
+          // Open epic loader to switch epics (only when not executing)
+          if (onLoadEpics && (status === 'ready' || status === 'paused' || status === 'stopped' || status === 'idle' || status === 'complete' || status === 'error')) {
+            setShowEpicLoader(true);
+            setEpicLoaderLoading(true);
+            setEpicLoaderError(undefined);
+            // Load epics asynchronously
+            onLoadEpics()
+              .then((loadedEpics) => {
+                setEpicLoaderEpics(loadedEpics);
+                setEpicLoaderLoading(false);
+              })
+              .catch((err) => {
+                setEpicLoaderError(err instanceof Error ? err.message : 'Failed to load epics');
+                setEpicLoaderLoading(false);
+              });
+          }
+          break;
+
         case 'return':
         case 'enter':
           // When in ready state, Enter starts the execution
@@ -604,7 +653,7 @@ export function RunApp({
           break;
       }
     },
-    [displayedTasks, selectedIndex, status, engine, onQuit, onTaskDrillDown, viewMode, iterations, iterationSelectedIndex, iterationHistoryLength, onIterationDrillDown, showInterruptDialog, onInterruptConfirm, onInterruptCancel, showHelp, showSettings, onStart, storedConfig, onSaveSettings]
+    [displayedTasks, selectedIndex, status, engine, onQuit, onTaskDrillDown, viewMode, iterations, iterationSelectedIndex, iterationHistoryLength, onIterationDrillDown, showInterruptDialog, onInterruptConfirm, onInterruptCancel, showHelp, showSettings, showEpicLoader, onStart, storedConfig, onSaveSettings, onLoadEpics]
   );
 
   useKeyboard(handleKeyboard);
@@ -749,6 +798,34 @@ export function RunApp({
           onClose={() => setShowSettings(false)}
         />
       )}
+
+      {/* Epic Loader Overlay */}
+      <EpicLoaderOverlay
+        visible={showEpicLoader}
+        mode={epicLoaderMode}
+        epics={epicLoaderEpics}
+        loading={epicLoaderLoading}
+        error={epicLoaderError}
+        trackerName={trackerName}
+        currentEpicId={currentEpicId}
+        onSelect={async (epic) => {
+          if (onEpicSwitch) {
+            await onEpicSwitch(epic);
+          }
+          setShowEpicLoader(false);
+        }}
+        onCancel={() => setShowEpicLoader(false)}
+        onFilePath={async (path) => {
+          if (onFilePathSwitch) {
+            const success = await onFilePathSwitch(path);
+            if (success) {
+              setShowEpicLoader(false);
+            } else {
+              setEpicLoaderError(`Failed to load file: ${path}`);
+            }
+          }
+        }}
+      />
     </box>
   );
 }

@@ -494,6 +494,10 @@ interface RunAppWrapperProps {
   storedConfig?: StoredConfig;
   /** Working directory for saving settings */
   cwd?: string;
+  /** Tracker type for epic loader mode */
+  trackerType?: string;
+  /** Current epic ID for highlighting */
+  currentEpicId?: string;
 }
 
 /**
@@ -509,9 +513,13 @@ function RunAppWrapper({
   onStart,
   storedConfig: initialStoredConfig,
   cwd = process.cwd(),
+  trackerType,
+  currentEpicId: initialEpicId,
 }: RunAppWrapperProps) {
   const [showInterruptDialog, setShowInterruptDialog] = useState(false);
   const [storedConfig, setStoredConfig] = useState<StoredConfig | undefined>(initialStoredConfig);
+  const [tasks, setTasks] = useState<TrackerTask[]>(initialTasks ?? []);
+  const [currentEpicId, setCurrentEpicId] = useState<string | undefined>(initialEpicId);
 
   // Get available plugins from registries
   const agentRegistry = getAgentRegistry();
@@ -523,6 +531,67 @@ function RunAppWrapper({
   const handleSaveSettings = async (newConfig: StoredConfig): Promise<void> => {
     await saveProjectConfig(newConfig, cwd);
     setStoredConfig(newConfig);
+  };
+
+  // Handle loading available epics
+  const handleLoadEpics = async (): Promise<TrackerTask[]> => {
+    const tracker = engine.getTracker();
+    if (!tracker) {
+      throw new Error('Tracker not available');
+    }
+    return tracker.getEpics();
+  };
+
+  // Handle epic switch
+  const handleEpicSwitch = async (epic: TrackerTask): Promise<void> => {
+    const tracker = engine.getTracker();
+    if (!tracker) {
+      throw new Error('Tracker not available');
+    }
+
+    // Stop engine if running
+    const state = engine.getState();
+    if (state.status === 'running') {
+      engine.stop();
+    }
+
+    // Set new epic ID
+    if (tracker.setEpicId) {
+      tracker.setEpicId(epic.id);
+    }
+
+    // Update current epic ID
+    setCurrentEpicId(epic.id);
+
+    // Refresh tasks from tracker
+    const newTasks = await tracker.getTasks({ status: ['open', 'in_progress'] });
+    setTasks(newTasks);
+
+    // Trigger task refresh in engine
+    engine.refreshTasks();
+  };
+
+  // Handle file path switch (for json tracker)
+  const handleFilePathSwitch = async (path: string): Promise<boolean> => {
+    const tracker = engine.getTracker();
+    if (!tracker) {
+      return false;
+    }
+
+    // Check if tracker has setFilePath method (JsonTrackerPlugin)
+    const jsonTracker = tracker as { setFilePath?: (path: string) => Promise<boolean> };
+    if (jsonTracker.setFilePath) {
+      const success = await jsonTracker.setFilePath(path);
+      if (success) {
+        // Refresh tasks from tracker
+        const newTasks = await tracker.getTasks({ status: ['open', 'in_progress'] });
+        setTasks(newTasks);
+        engine.refreshTasks();
+      }
+      return success;
+    }
+
+    return false;
   };
 
   // These callbacks are passed to the interrupt handler
@@ -550,12 +619,17 @@ function RunAppWrapper({
         setShowInterruptDialog(false);
         interruptHandler.reset();
       }}
-      initialTasks={initialTasks}
+      initialTasks={tasks}
       onStart={onStart}
       storedConfig={storedConfig}
       availableAgents={availableAgents}
       availableTrackers={availableTrackers}
       onSaveSettings={handleSaveSettings}
+      onLoadEpics={handleLoadEpics}
+      onEpicSwitch={handleEpicSwitch}
+      onFilePathSwitch={handleFilePathSwitch}
+      trackerType={trackerType}
+      currentEpicId={currentEpicId}
     />
   );
 }
@@ -703,6 +777,8 @@ async function runWithTui(
       onStart={handleStart}
       storedConfig={storedConfig}
       cwd={config.cwd}
+      trackerType={config.tracker.plugin}
+      currentEpicId={config.epicId}
     />
   );
 

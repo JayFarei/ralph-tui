@@ -145,6 +145,7 @@ export class JsonTrackerPlugin extends BaseTrackerPlugin {
   private prdCache: PrdJson | null = null;
   private cacheTime: number = 0;
   private readonly CACHE_TTL_MS = 1000; // 1 second cache TTL
+  private epicId: string = ''; // Stores prd:<name> or empty
 
   override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
@@ -376,6 +377,54 @@ export class JsonTrackerPlugin extends BaseTrackerPlugin {
    */
   getBranchName(): string {
     return this.branchName || this.prdCache?.branchName || '';
+  }
+
+  /**
+   * Set the epic ID (file path) for this tracker.
+   * For JSON tracker, this changes the active prd.json file.
+   * Expected format: "prd:<name>" or a file path.
+   * @param epicId The epic ID to set
+   */
+  setEpicId(epicId: string): void {
+    this.epicId = epicId;
+    // If the epicId is a file path (from metadata), update the file path
+    // The epicId format from getEpics is "prd:<name>" but we also store
+    // the actual file path in metadata.filePath
+  }
+
+  /**
+   * Get the currently configured epic ID.
+   * @returns The current epic ID, or empty string if none set
+   */
+  getEpicId(): string {
+    return this.epicId;
+  }
+
+  /**
+   * Set a new file path and reinitialize.
+   * Used when switching to a different prd.json file.
+   * @param path The new file path
+   */
+  async setFilePath(path: string): Promise<boolean> {
+    const resolvedPath = resolve(path);
+    try {
+      await access(resolvedPath, constants.R_OK | constants.W_OK);
+      this.filePath = resolvedPath;
+      // Clear cache to force re-read
+      this.prdCache = null;
+      this.cacheTime = 0;
+      this.ready = true;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Get the current file path.
+   */
+  getFilePath(): string {
+    return this.filePath;
   }
 
   /**

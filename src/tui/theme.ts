@@ -87,9 +87,9 @@ export const keyboardShortcuts = [
   { key: 'Enter', description: 'Start' },
   { key: 'p', description: 'Pause/Resume' },
   { key: 'r', description: 'Refresh' },
+  { key: 'l', description: 'Load Epic' },
   { key: ',', description: 'Settings' },
   { key: 'd', description: 'Dashboard' },
-  { key: 'h', description: 'Hide/Show Closed' },
   { key: '↑↓', description: 'Navigate' },
   { key: '?', description: 'Help' },
 ] as const;
@@ -105,6 +105,7 @@ export const fullKeyboardShortcuts = [
   { key: 'Enter/s', description: 'Start execution (when ready)', category: 'Execution' },
   { key: 'p', description: 'Pause / Resume execution', category: 'Execution' },
   { key: 'r', description: 'Refresh task list from tracker', category: 'Execution' },
+  { key: 'l', description: 'Load / switch epic', category: 'Execution' },
   { key: 'd', description: 'Toggle progress dashboard', category: 'Views' },
   { key: 'h', description: 'Toggle show/hide closed tasks', category: 'Views' },
   { key: 'i', description: 'Toggle iterations / tasks view', category: 'Views' },

@@ -317,6 +317,22 @@ export interface TrackerPlugin {
   getEpics(): Promise<TrackerTask[]>;
 
   /**
+   * Set the current epic ID for filtering tasks.
+   * Used when user switches epics mid-session via the 'l' key.
+   * Implementation varies by tracker type:
+   * - beads/beads-bv: Sets epic ID filter for bd list commands
+   * - json: May change the active prd.json file
+   * @param epicId The epic ID to set, or empty string to clear
+   */
+  setEpicId?(epicId: string): void;
+
+  /**
+   * Get the currently configured epic ID.
+   * @returns The current epic ID, or empty string if none set
+   */
+  getEpicId?(): string;
+
+  /**
    * Get setup questions for configuring this plugin.
    * Used by the setup wizard to collect configuration.
    * @returns Array of questions to ask during setup
