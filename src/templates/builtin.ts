@@ -28,6 +28,11 @@ export const DEFAULT_TEMPLATE = `## Task
 **Dependencies**: {{dependsOn}}
 {{/if}}
 
+{{#if recentProgress}}
+## Previous Progress
+{{recentProgress}}
+{{/if}}
+
 ## Instructions
 Complete the task described above. When finished, signal completion with:
 <promise>COMPLETE</promise>
@@ -49,6 +54,11 @@ export const BEADS_TEMPLATE = `## Bead Details
 {{#if acceptanceCriteria}}
 ## Acceptance Criteria
 {{acceptanceCriteria}}
+{{/if}}
+
+{{#if recentProgress}}
+## Previous Progress
+{{recentProgress}}
 {{/if}}
 
 ## Instructions
@@ -89,6 +99,11 @@ This task depends on: {{dependsOn}}
 Completing this task will unblock: {{blocks}}
 {{/if}}
 
+{{#if recentProgress}}
+## Previous Progress
+{{recentProgress}}
+{{/if}}
+
 ## Instructions
 1. Implement the requirements (stay on current branch)
 2. Run your project's quality checks (typecheck, lint, etc.)
@@ -123,6 +138,11 @@ export const JSON_TEMPLATE = `## User Story
 
 {{#if dependsOn}}
 **Prerequisites**: {{dependsOn}}
+{{/if}}
+
+{{#if recentProgress}}
+## Previous Progress
+{{recentProgress}}
 {{/if}}
 
 ## Instructions

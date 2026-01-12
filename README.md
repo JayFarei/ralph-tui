@@ -326,6 +326,7 @@ Ralph TUI includes these skills (installed during `ralph-tui setup`):
 | `--delay <ms>` | Delay between iterations in milliseconds |
 | `--prompt <path>` | Custom prompt template file path |
 | `--output-dir <path>` | Directory for iteration logs (default: .ralph-tui/iterations) |
+| `--progress-file <path>` | Progress file for cross-iteration context (default: .ralph-tui/progress.md) |
 | `--headless` | Run without TUI (alias: `--no-tui`) |
 | `--no-setup` | Skip interactive setup even if no config exists |
 
@@ -453,6 +454,7 @@ subagentTracingDetail = "full"
 | `iterationDelay` | number | Delay in ms between iterations |
 | `prompt_template` | string | Path to custom Handlebars template |
 | `outputDir` | string | Output directory for iteration logs |
+| `progressFile` | string | Progress file path for cross-iteration context |
 | `autoCommit` | boolean | Auto-commit after task completion |
 | `fallbackAgents` | string[] | Fallback agents for rate limit handling |
 | `rateLimitHandling` | object | Rate limit retry/fallback configuration |
@@ -578,6 +580,17 @@ On resume, Ralph:
 1. Loads the session file
 2. Resets any stale "in_progress" tasks to "open"
 3. Continues from where it left off
+
+### Cross-Iteration Progress
+
+Ralph maintains a progress file (`.ralph-tui/progress.md`) that accumulates notes from each iteration. This provides context for subsequent agent runs about what's been accomplished:
+
+- **Automatic**: After each iteration, Ralph extracts insights and completion notes from agent output
+- **Included in prompts**: Recent progress (last 5 iterations) is injected into the agent prompt via `{{recentProgress}}`
+- **Fresh start per epic**: Progress file is cleared when starting a new session (not on resume)
+- **Size-limited**: File is capped at ~50KB, with older entries automatically truncated
+
+This helps the agent understand prior work without re-reading code, improving task execution quality.
 
 ### Subagent Tracing
 

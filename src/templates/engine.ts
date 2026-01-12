@@ -229,7 +229,8 @@ function getAcceptanceCriteria(task: TrackerTask): string {
 export function buildTemplateVariables(
   task: TrackerTask,
   config: Partial<RalphConfig>,
-  epic?: { id: string; title: string; description?: string }
+  epic?: { id: string; title: string; description?: string },
+  recentProgress?: string
 ): TemplateVariables {
   return {
     taskId: task.id,
@@ -251,6 +252,7 @@ export function buildTemplateVariables(
     currentDate: new Date().toISOString().split('T')[0],
     currentTimestamp: new Date().toISOString(),
     notes: (task.metadata?.notes as string) ?? '',
+    recentProgress: recentProgress ?? '',
   };
 }
 
@@ -259,15 +261,17 @@ export function buildTemplateVariables(
  * @param task The current task
  * @param config The ralph configuration
  * @param epic Optional epic information
+ * @param recentProgress Optional recent progress summary
  * @returns The template context
  */
 export function buildTemplateContext(
   task: TrackerTask,
   config: Partial<RalphConfig>,
-  epic?: { id: string; title: string; description?: string }
+  epic?: { id: string; title: string; description?: string },
+  recentProgress?: string
 ): TemplateContext {
   return {
-    vars: buildTemplateVariables(task, config, epic),
+    vars: buildTemplateVariables(task, config, epic, recentProgress),
     task,
     config,
     epic,
@@ -304,12 +308,14 @@ function compileTemplate(
  * @param task The current task
  * @param config The ralph configuration
  * @param epic Optional epic information
+ * @param recentProgress Optional recent progress summary from previous iterations
  * @returns The render result with the prompt or error
  */
 export function renderPrompt(
   task: TrackerTask,
   config: RalphConfig,
-  epic?: { id: string; title: string; description?: string }
+  epic?: { id: string; title: string; description?: string },
+  recentProgress?: string
 ): TemplateRenderResult {
   // Determine template to use
   const trackerType = getTemplateTypeFromPlugin(config.tracker.plugin);
@@ -326,7 +332,7 @@ export function renderPrompt(
   }
 
   // Build context
-  const context = buildTemplateContext(task, config, epic);
+  const context = buildTemplateContext(task, config, epic, recentProgress);
 
   // Create a flat context for Handlebars (variables at top level)
   const flatContext = {

@@ -51,7 +51,7 @@ import type { RalphConfig } from '../config/types.js';
 import { projectConfigExists, runSetupWizard } from '../setup/index.js';
 import { createInterruptHandler } from '../interruption/index.js';
 import type { InterruptHandler } from '../interruption/types.js';
-import { createStructuredLogger } from '../logs/index.js';
+import { createStructuredLogger, clearProgress } from '../logs/index.js';
 
 /**
  * Extended runtime options with noSetup flag
@@ -164,6 +164,13 @@ export function parseRunArgs(args: string[]): ExtendedRuntimeOptions {
           i++;
         }
         break;
+
+      case '--progress-file':
+        if (nextArg && !nextArg.startsWith('-')) {
+          options.progressFile = nextArg;
+          i++;
+        }
+        break;
     }
   }
 
@@ -187,6 +194,7 @@ Options:
   --tracker <name>    Override tracker plugin (e.g., beads, beads-bv, json)
   --prompt <path>     Custom prompt file (default: based on tracker mode)
   --output-dir <path> Directory for iteration logs (default: .ralph-tui/iterations)
+  --progress-file <path> Progress file for cross-iteration context (default: .ralph-tui/progress.md)
   --iterations <n>    Maximum iterations (0 = unlimited)
   --delay <ms>        Delay between iterations in milliseconds
   --cwd <path>        Working directory
@@ -1245,6 +1253,10 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   } else {
     // Create new session (task count will be updated after tracker init)
     // Note: Lock already acquired above, so createSession won't re-acquire
+
+    // Clear progress file for fresh start with new epic
+    await clearProgress(config.cwd);
+
     session = await createSession({
       agentPlugin: config.agent.plugin,
       trackerPlugin: config.tracker.plugin,

@@ -92,6 +92,9 @@ export interface RuntimeOptions {
 
   /** Output directory for iteration logs (overrides config) */
   outputDir?: string;
+
+  /** Progress file path for cross-iteration context */
+  progressFile?: string;
 }
 
 /**
@@ -118,6 +121,9 @@ export interface StoredConfig {
 
   /** Output directory for iteration logs */
   outputDir?: string;
+
+  /** Progress file path for cross-iteration context */
+  progressFile?: string;
 
   /** Error handling configuration */
   errorHandling?: Partial<ErrorHandlingConfig>;
@@ -175,6 +181,9 @@ export interface RalphConfig {
   /** Output directory for iteration logs */
   outputDir: string;
 
+  /** Progress file path for cross-iteration context */
+  progressFile: string;
+
   /** Epic ID (for beads trackers) */
   epicId?: string;
 
@@ -226,6 +235,7 @@ export const DEFAULT_CONFIG: Omit<RalphConfig, 'agent' | 'tracker'> = {
   iterationDelay: 1000,
   cwd: process.cwd(),
   outputDir: '.ralph-tui/iterations',
+  progressFile: '.ralph-tui/progress.md',
   showTui: true,
   errorHandling: DEFAULT_ERROR_HANDLING,
 };

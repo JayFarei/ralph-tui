@@ -511,6 +511,7 @@ export async function buildConfig(
       DEFAULT_CONFIG.iterationDelay,
     cwd: options.cwd ?? DEFAULT_CONFIG.cwd,
     outputDir: options.outputDir ?? storedConfig.outputDir ?? DEFAULT_CONFIG.outputDir,
+    progressFile: options.progressFile ?? storedConfig.progressFile ?? DEFAULT_CONFIG.progressFile,
     epicId: options.epicId,
     prdPath: options.prdPath,
     model: options.model,

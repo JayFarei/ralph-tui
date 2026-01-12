@@ -35,7 +35,7 @@ import { SubagentTraceParser } from '../plugins/agents/tracing/parser.js';
 import type { SubagentEvent } from '../plugins/agents/tracing/types.js';
 import { ClaudeAgentPlugin } from '../plugins/agents/builtin/claude.js';
 import { updateSessionIteration, updateSessionStatus } from '../session/index.js';
-import { saveIterationLog, buildSubagentTrace } from '../logs/index.js';
+import { saveIterationLog, buildSubagentTrace, createProgressEntry, appendProgress, getRecentProgressSummary } from '../logs/index.js';
 import { renderPrompt } from '../templates/index.js';
 
 /**
@@ -58,10 +58,14 @@ const PRIMARY_RECOVERY_TEST_PROMPT = 'Reply with just the word "ok".';
 /**
  * Build prompt for the agent based on task using the template system.
  * Falls back to a hardcoded default if template rendering fails.
+ * Includes recent progress from previous iterations for context.
  */
-function buildPrompt(task: TrackerTask, config: RalphConfig): string {
+async function buildPrompt(task: TrackerTask, config: RalphConfig): Promise<string> {
+  // Load recent progress for context (last 5 iterations)
+  const recentProgress = await getRecentProgressSummary(config.cwd, 5);
+
   // Use the template system
-  const result = renderPrompt(task, config);
+  const result = renderPrompt(task, config, undefined, recentProgress);
 
   if (result.success && result.prompt) {
     return result.prompt;
@@ -691,8 +695,8 @@ export class ExecutionEngine {
       iteration,
     });
 
-    // Build prompt
-    const prompt = buildPrompt(task, this.config);
+    // Build prompt (includes recent progress context)
+    const prompt = await buildPrompt(task, this.config);
 
     // Build agent flags
     const flags: string[] = [];
@@ -888,6 +892,15 @@ export class ExecutionEngine {
         config: this.config,
         subagentTrace,
       });
+
+      // Append progress entry for cross-iteration context
+      // This provides agents with history of what's been done
+      try {
+        const progressEntry = createProgressEntry(result);
+        await appendProgress(this.config.cwd, progressEntry);
+      } catch {
+        // Don't fail iteration if progress append fails
+      }
 
       this.emit({
         type: 'iteration:completed',

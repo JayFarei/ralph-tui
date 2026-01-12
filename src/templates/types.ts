@@ -67,6 +67,9 @@ export interface TemplateVariables {
 
   /** Task notes (additional context, progress notes, etc.) */
   notes: string;
+
+  /** Recent progress summary from previous iterations (optional) */
+  recentProgress: string;
 }
 
 /**
