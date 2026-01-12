@@ -6,13 +6,13 @@
 
 import { createCliRenderer } from '@opentui/core';
 import { createRoot } from '@opentui/react';
-import * as readline from 'node:readline';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { PrdChatApp } from '../tui/components/PrdChatApp.js';
 import { loadStoredConfig, requireSetup } from '../config/index.js';
 import { getAgentRegistry } from '../plugins/agents/registry.js';
 import { registerBuiltinAgents } from '../plugins/agents/builtin/index.js';
+import { promptSelect } from '../setup/prompts.js';
 import type { AgentPlugin, AgentPluginConfig } from '../plugins/agents/types.js';
 
 /**
@@ -199,39 +199,39 @@ function getAvailableTrackers(cwd: string): TrackerOption[] {
 
 /**
  * Prompt user to select a tracker for task creation.
+ * Uses the shared promptSelect utility for consistent terminal handling.
  */
 async function promptTrackerSelection(cwd: string): Promise<TrackerOption | null> {
   const trackers = getAvailableTrackers(cwd);
   const availableTrackers = trackers.filter((t) => t.available);
 
-  console.log('');
-  console.log('Would you like to create tasks for a tracker?');
-  console.log('');
+  // Small delay to allow terminal to fully restore after TUI cleanup
+  await new Promise((r) => setTimeout(r, 100));
 
-  for (const tracker of availableTrackers) {
-    console.log(`  ${tracker.key}. ${tracker.name} - ${tracker.description}`);
+  // Build choices for promptSelect
+  const choices = availableTrackers.map((t) => ({
+    value: t.key,
+    label: t.name,
+    description: t.description,
+  }));
+
+  try {
+    const selected = await promptSelect(
+      'Would you like to create tasks for a tracker?',
+      choices,
+      { default: 'C' } // Default to skip
+    );
+
+    const tracker = availableTrackers.find((t) => t.key === selected);
+    if (!tracker || tracker.key === 'C') {
+      return null;
+    }
+    return tracker;
+  } catch (err) {
+    // Handle any readline errors gracefully
+    console.error('Input error:', err instanceof Error ? err.message : err);
+    return null;
   }
-
-  console.log('');
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question('Select option (A/B/C): ', (answer) => {
-      rl.close();
-      const normalized = answer.trim().toUpperCase();
-      const selected = availableTrackers.find((t) => t.key === normalized);
-
-      if (!selected || selected.key === 'C') {
-        resolve(null);
-      } else {
-        resolve(selected);
-      }
-    });
-  });
 }
 
 /**
