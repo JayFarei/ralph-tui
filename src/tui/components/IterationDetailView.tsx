@@ -1,12 +1,14 @@
 /**
  * ABOUTME: IterationDetailView component for the Ralph TUI.
  * Displays detailed information about a single iteration including
- * status, timing, events timeline, and scrollable agent output with syntax highlighting.
+ * status, timing, events timeline, subagent tree, and scrollable agent output with syntax highlighting.
  */
 
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import { colors, formatElapsedTime } from '../theme.js';
-import type { IterationResult, IterationStatus } from '../../engine/types.js';
+import type { IterationResult, IterationStatus, EngineSubagentStatus } from '../../engine/types.js';
+import type { SubagentHierarchyNode, SubagentTraceStats } from '../../logs/types.js';
 
 /**
  * Event in the iteration timeline
@@ -34,6 +36,12 @@ export interface IterationDetailViewProps {
   cwd?: string;
   /** Callback when Esc is pressed to return to list view */
   onBack?: () => void;
+  /** Subagent hierarchy tree for this iteration (loaded lazily) */
+  subagentTree?: SubagentHierarchyNode[];
+  /** Subagent statistics for this iteration */
+  subagentStats?: SubagentTraceStats;
+  /** Loading state for subagent trace data */
+  subagentTraceLoading?: boolean;
 }
 
 /**
@@ -345,6 +353,218 @@ function getOutputFilePath(
 }
 
 /**
+ * Get status icon for subagent based on its completion state.
+ */
+function getSubagentStatusIcon(status: EngineSubagentStatus): string {
+  switch (status) {
+    case 'running':
+      return '◐';
+    case 'completed':
+      return '✓';
+    case 'error':
+      return '✗';
+    default:
+      return '○';
+  }
+}
+
+/**
+ * Get status color for subagent based on its completion state.
+ */
+function getSubagentStatusColor(status: EngineSubagentStatus): string {
+  switch (status) {
+    case 'running':
+      return colors.status.info;
+    case 'completed':
+      return colors.status.success;
+    case 'error':
+      return colors.status.error;
+    default:
+      return colors.fg.muted;
+  }
+}
+
+/**
+ * Format duration in human-readable format for subagents.
+ */
+function formatSubagentDuration(durationMs?: number): string {
+  if (durationMs === undefined) return '';
+  if (durationMs < 1000) return `${durationMs}ms`;
+  const seconds = Math.floor(durationMs / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
+/**
+ * Props for expandable subagent row.
+ */
+interface SubagentTreeRowProps {
+  node: SubagentHierarchyNode;
+  depth: number;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+}
+
+/**
+ * Single expandable subagent row in the tree.
+ */
+function SubagentTreeRowExpandable({
+  node,
+  depth,
+  expandedIds,
+  onToggle,
+}: SubagentTreeRowProps): ReactNode {
+  const { state } = node;
+  const hasChildren = node.children.length > 0;
+  const isExpanded = expandedIds.has(state.id);
+  const statusIcon = getSubagentStatusIcon(state.status);
+  const statusColor = getSubagentStatusColor(state.status);
+
+  // Indentation based on depth
+  const indent = '  '.repeat(depth);
+
+  // Expand/collapse indicator
+  const expandIcon = hasChildren ? (isExpanded ? '▼' : '▶') : ' ';
+
+  // Format agent type and description
+  const agentType = `[${state.agentType}]`;
+  const duration = state.durationMs !== undefined ? ` [${formatSubagentDuration(state.durationMs)}]` : '';
+
+  return (
+    <>
+      <box
+        style={{
+          flexDirection: 'row',
+          paddingLeft: 1,
+          paddingRight: 1,
+          marginBottom: 0,
+        }}
+      >
+        <text>
+          <span fg={colors.fg.dim}>{indent}</span>
+          <span fg={hasChildren ? colors.fg.muted : colors.fg.dim}>{expandIcon}</span>
+          <span fg={statusColor}> {statusIcon}</span>
+          <span fg={colors.accent.tertiary}> {agentType}</span>
+          <span fg={colors.fg.secondary}> {state.description}</span>
+          {duration && <span fg={colors.fg.dim}>{duration}</span>}
+        </text>
+      </box>
+      {/* Render children if expanded */}
+      {isExpanded &&
+        node.children.map((child) => (
+          <SubagentTreeRowExpandable
+            key={child.state.id}
+            node={child}
+            depth={depth + 1}
+            expandedIds={expandedIds}
+            onToggle={onToggle}
+          />
+        ))}
+    </>
+  );
+}
+
+/**
+ * Expandable subagent tree section component.
+ */
+function SubagentTreeSection({
+  tree,
+  stats,
+  loading,
+}: {
+  tree?: SubagentHierarchyNode[];
+  stats?: SubagentTraceStats;
+  loading?: boolean;
+}): ReactNode {
+  // Track which subagent IDs are expanded (starts all expanded)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => {
+    const ids = new Set<string>();
+    // Pre-expand all nodes initially for visibility
+    function collectIds(nodes: SubagentHierarchyNode[]) {
+      for (const node of nodes) {
+        ids.add(node.state.id);
+        collectIds(node.children);
+      }
+    }
+    if (tree) collectIds(tree);
+    return ids;
+  });
+
+  const handleToggle = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Build summary line
+  const summaryParts: string[] = [];
+  if (stats) {
+    summaryParts.push(`${stats.totalSubagents} subagent${stats.totalSubagents === 1 ? '' : 's'}`);
+    if (stats.failureCount > 0) {
+      summaryParts.push(`${stats.failureCount} failed`);
+    }
+    if (stats.maxDepth > 1) {
+      summaryParts.push(`max depth ${stats.maxDepth}`);
+    }
+  }
+  const summaryText = summaryParts.join(' · ');
+
+  // Determine title with failure indicator
+  const hasFailures = stats && stats.failureCount > 0;
+  const title = hasFailures ? 'Subagent Activity ✗' : 'Subagent Activity';
+
+  return (
+    <box style={{ marginBottom: 2 }}>
+      <SectionHeader title={title} />
+      <box
+        style={{
+          padding: 1,
+          backgroundColor: colors.bg.secondary,
+          border: true,
+          borderColor: hasFailures ? colors.status.error : colors.border.muted,
+          flexDirection: 'column',
+        }}
+      >
+        {loading ? (
+          <text fg={colors.fg.dim}>Loading subagent trace...</text>
+        ) : !tree || tree.length === 0 ? (
+          <text fg={colors.fg.muted}>No subagents spawned</text>
+        ) : (
+          <>
+            {/* Summary line */}
+            {summaryText && (
+              <box style={{ marginBottom: 1 }}>
+                <text fg={hasFailures ? colors.status.error : colors.fg.muted}>
+                  {summaryText}
+                </text>
+              </box>
+            )}
+            {/* Tree view */}
+            {tree.map((node) => (
+              <SubagentTreeRowExpandable
+                key={node.state.id}
+                node={node}
+                depth={0}
+                expandedIds={expandedIds}
+                onToggle={handleToggle}
+              />
+            ))}
+          </>
+        )}
+      </box>
+    </box>
+  );
+}
+
+/**
  * IterationDetailView component showing comprehensive iteration details.
  * Note: onBack is provided for API completeness but navigation is handled
  * by keyboard (Esc key) in the parent component.
@@ -355,6 +575,9 @@ export function IterationDetailView({
   outputDir = '.ralph-output',
   cwd: _cwd = '.',
   onBack: _onBack,
+  subagentTree,
+  subagentStats,
+  subagentTraceLoading,
 }: IterationDetailViewProps): ReactNode {
   const statusColor = statusColors[iteration.status];
   const statusIndicator = statusIndicators[iteration.status];
@@ -479,6 +702,15 @@ export function IterationDetailView({
             ))}
           </box>
         </box>
+
+        {/* Subagent activity section - shows if any subagents were spawned or loading */}
+        {(subagentTraceLoading || (subagentTree && subagentTree.length > 0) || subagentStats) && (
+          <SubagentTreeSection
+            tree={subagentTree}
+            stats={subagentStats}
+            loading={subagentTraceLoading}
+          />
+        )}
 
         {/* Output file link */}
         <box style={{ marginBottom: 2 }}>

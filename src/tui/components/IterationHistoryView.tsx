@@ -1,12 +1,13 @@
 /**
  * ABOUTME: IterationHistoryView component for the Ralph TUI.
- * Displays a list of all iterations with status, task, duration, and outcome.
+ * Displays a list of all iterations with status, task, duration, outcome, and subagent summary.
  * Supports keyboard navigation through iterations with Enter to drill into details.
  */
 
 import type { ReactNode } from 'react';
 import { colors, formatElapsedTime } from '../theme.js';
 import type { IterationResult, IterationStatus } from '../../engine/types.js';
+import type { SubagentTraceStats } from '../../logs/types.js';
 
 /**
  * Extended status type that includes 'pending' for display purposes
@@ -53,6 +54,24 @@ function getOutcomeText(result: IterationResult, isRunning: boolean): string {
 }
 
 /**
+ * Format subagent summary for display in iteration row.
+ * Shows count and failure indicator if any subagents failed.
+ * Examples: "3 subagents", "5 subagents ✗1"
+ */
+function formatSubagentSummary(stats: SubagentTraceStats | undefined): string {
+  if (!stats || stats.totalSubagents === 0) return '';
+
+  const count = stats.totalSubagents;
+  const label = count === 1 ? 'subagent' : 'subagents';
+
+  if (stats.failureCount > 0) {
+    return `${count} ${label} ✗${stats.failureCount}`;
+  }
+
+  return `${count} ${label}`;
+}
+
+/**
  * Format duration in milliseconds to human-readable format
  */
 function formatDuration(durationMs: number): string {
@@ -85,6 +104,8 @@ export interface IterationHistoryViewProps {
   onIterationDrillDown?: (iteration: IterationResult) => void;
   /** Width of the component (for truncation calculations) */
   width?: number;
+  /** Subagent trace stats per iteration (keyed by iteration number) for summary display */
+  subagentStats?: Map<number, SubagentTraceStats>;
 }
 
 /**
@@ -96,31 +117,36 @@ function IterationRow({
   isSelected,
   isRunning,
   maxWidth,
+  subagentStats,
 }: {
   result: IterationResult;
   totalIterations: number;
   isSelected: boolean;
   isRunning: boolean;
   maxWidth: number;
+  subagentStats?: SubagentTraceStats;
 }): ReactNode {
   // Determine effective display status (override to 'running' if this is the current iteration)
   const effectiveStatus: DisplayIterationStatus = isRunning ? 'running' : result.status;
   const statusIndicator = iterationStatusIndicators[effectiveStatus];
   const statusColor = iterationStatusColors[effectiveStatus];
 
-  // Format: "✓ Iteration 1 of 10  task-id  2m 30s  Success"
+  // Format: "✓ Iteration 1 of 10  task-id  3 subagents  2m 30s  Success"
   const iterationLabel = `Iteration ${result.iteration} of ${totalIterations}`;
   const taskId = result.task.id;
   const duration = isRunning ? '...' : formatDuration(result.durationMs);
   const outcome = getOutcomeText(result, isRunning);
+  const subagentSummary = formatSubagentSummary(subagentStats);
+  const hasSubagentFailure = subagentStats && subagentStats.failureCount > 0;
 
   // Calculate widths for each section
-  // Format: [indicator(1)] [iteration label] [task-id] [duration] [outcome]
+  // Format: [indicator(1)] [iteration label] [task-id] [subagent summary] [duration] [outcome]
   // We'll use fixed widths for some columns and let task-id be flexible
   const durationWidth = 8;
   const outcomeWidth = 14;
+  const subagentWidth = subagentSummary ? Math.max(12, subagentSummary.length + 2) : 0;
   const iterationLabelWidth = iterationLabel.length;
-  const fixedWidth = 1 + 1 + iterationLabelWidth + 2 + durationWidth + 2 + outcomeWidth; // spaces between sections
+  const fixedWidth = 1 + 1 + iterationLabelWidth + 2 + subagentWidth + durationWidth + 2 + outcomeWidth;
   const taskIdWidth = Math.max(8, maxWidth - fixedWidth);
   const truncatedTaskId = truncateText(taskId, taskIdWidth);
 
@@ -138,6 +164,11 @@ function IterationRow({
         <span fg={statusColor}>{statusIndicator}</span>
         <span fg={isSelected ? colors.fg.primary : colors.fg.secondary}> {iterationLabel}</span>
         <span fg={colors.fg.muted}>  {truncatedTaskId.padEnd(taskIdWidth)}</span>
+        {subagentSummary && (
+          <span fg={hasSubagentFailure ? colors.status.error : colors.fg.dim}>
+            {'  '}{subagentSummary}
+          </span>
+        )}
         <span fg={colors.fg.dim}>  {duration.padStart(durationWidth)}</span>
         <span fg={statusColor}>  {truncateText(outcome, outcomeWidth)}</span>
       </text>
@@ -154,6 +185,7 @@ export function IterationHistoryView({
   selectedIndex,
   runningIteration,
   width = 80,
+  subagentStats,
 }: IterationHistoryViewProps): ReactNode {
   // Calculate max width for row content (width minus padding and border)
   const maxRowWidth = Math.max(40, width - 4);
@@ -207,6 +239,7 @@ export function IterationHistoryView({
                   isSelected={index === selectedIndex}
                   isRunning={item.result.iteration === runningIteration}
                   maxWidth={maxRowWidth}
+                  subagentStats={subagentStats?.get(item.result.iteration)}
                 />
               );
             } else {

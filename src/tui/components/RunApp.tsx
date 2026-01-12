@@ -29,6 +29,7 @@ import type { StoredConfig, SubagentDetailLevel } from '../../config/types.js';
 import type { AgentPluginMeta } from '../../plugins/agents/types.js';
 import type { TrackerPluginMeta } from '../../plugins/trackers/types.js';
 import { getIterationLogsByTask } from '../../logs/index.js';
+import type { SubagentTraceStats, SubagentHierarchyNode } from '../../logs/types.js';
 
 /**
  * View modes for the RunApp component
@@ -282,6 +283,18 @@ export function RunApp({
   const [collapsedSubagents, setCollapsedSubagents] = useState<Set<string>>(() => new Set());
   // Currently focused subagent ID for keyboard navigation (future enhancement)
   const [focusedSubagentId, setFocusedSubagentId] = useState<string | undefined>(undefined);
+  // Subagent stats cache for iteration history view (keyed by iteration number)
+  const [subagentStatsCache, setSubagentStatsCache] = useState<Map<number, SubagentTraceStats>>(
+    () => new Map()
+  );
+  // Subagent trace data for iteration detail view (lazily loaded)
+  const [iterationDetailSubagentTree, setIterationDetailSubagentTree] = useState<
+    SubagentHierarchyNode[] | undefined
+  >(undefined);
+  const [iterationDetailSubagentStats, setIterationDetailSubagentStats] = useState<
+    SubagentTraceStats | undefined
+  >(undefined);
+  const [iterationDetailSubagentLoading, setIterationDetailSubagentLoading] = useState(false);
 
   // Filter and sort tasks for display
   // Sort order: active → actionable → blocked → done → closed
@@ -830,6 +843,80 @@ export function RunApp({
     }
   }, [selectedTask, cwd, iterations, historicalOutputCache]);
 
+  // Lazy load subagent trace data when viewing iteration details
+  useEffect(() => {
+    if (viewMode !== 'iteration-detail' || !detailIteration || !cwd) {
+      // Clear data when not in detail view
+      setIterationDetailSubagentTree(undefined);
+      setIterationDetailSubagentStats(undefined);
+      setIterationDetailSubagentLoading(false);
+      return;
+    }
+
+    // Check if we already have the stats cached
+    const cachedStats = subagentStatsCache.get(detailIteration.iteration);
+    if (cachedStats) {
+      setIterationDetailSubagentStats(cachedStats);
+    }
+
+    // Load the full trace data from the log file
+    setIterationDetailSubagentLoading(true);
+
+    // Find the log file for this iteration
+    getIterationLogsByTask(cwd, detailIteration.task.id).then(async (logs) => {
+      // Find the log matching this iteration number
+      const log = logs.find((l) => l.metadata.iteration === detailIteration.iteration);
+      if (log && log.subagentTrace) {
+        setIterationDetailSubagentTree(log.subagentTrace.hierarchy);
+        setIterationDetailSubagentStats(log.subagentTrace.stats);
+        // Cache the stats for the history view
+        setSubagentStatsCache((prev) => {
+          const next = new Map(prev);
+          next.set(detailIteration.iteration, log.subagentTrace!.stats);
+          return next;
+        });
+      } else {
+        setIterationDetailSubagentTree(undefined);
+        setIterationDetailSubagentStats(undefined);
+      }
+      setIterationDetailSubagentLoading(false);
+    }).catch(() => {
+      setIterationDetailSubagentLoading(false);
+      setIterationDetailSubagentTree(undefined);
+      setIterationDetailSubagentStats(undefined);
+    });
+  }, [viewMode, detailIteration, cwd, subagentStatsCache]);
+
+  // Also load subagent stats for all iterations when viewing history (lazy background loading)
+  useEffect(() => {
+    if (viewMode !== 'iterations' || !cwd || iterations.length === 0) {
+      return;
+    }
+
+    // Load stats for iterations we don't have cached yet
+    const loadMissingStats = async () => {
+      for (const iter of iterations) {
+        if (!subagentStatsCache.has(iter.iteration)) {
+          try {
+            const logs = await getIterationLogsByTask(cwd, iter.task.id);
+            const log = logs.find((l) => l.metadata.iteration === iter.iteration);
+            if (log?.subagentTrace?.stats) {
+              setSubagentStatsCache((prev) => {
+                const next = new Map(prev);
+                next.set(iter.iteration, log.subagentTrace!.stats);
+                return next;
+              });
+            }
+          } catch {
+            // Ignore errors loading individual stats
+          }
+        }
+      }
+    };
+
+    loadMissingStats();
+  }, [viewMode, iterations, cwd, subagentStatsCache]);
+
   return (
     <box
       style={{
@@ -895,6 +982,9 @@ export function RunApp({
               setViewMode('iterations');
               setDetailIteration(null);
             }}
+            subagentTree={iterationDetailSubagentTree}
+            subagentStats={iterationDetailSubagentStats}
+            subagentTraceLoading={iterationDetailSubagentLoading}
           />
         ) : viewMode === 'tasks' ? (
           <>
@@ -920,6 +1010,7 @@ export function RunApp({
               selectedIndex={iterationSelectedIndex}
               runningIteration={currentIteration}
               width={isCompact ? width : Math.floor(width * 0.5)}
+              subagentStats={subagentStatsCache}
             />
             <RightPanel
               selectedTask={selectedTask}
