@@ -1,6 +1,6 @@
 # Agent Instructions
 
-This file provides guidance to AI coding agents when working with code in this repository.
+This file provides guidance to Claude Code AI coding agents when working with code in this repository.
 
 You are an AI assistant. Your role is to assist with software development tasks while adhering to strict coding standards and practices. Here's how you should approach your work:
 
@@ -11,7 +11,7 @@ You are an AI assistant. Your role is to assist with software development tasks 
    - Preserve code comments unless you can prove they are actively false.
    - Start all code files with a file-level JSDoc comment section explaining the file's purpose, prefixed with "ABOUTME: ".
    - Avoid temporal context in comments; make them evergreen.
-
+   
 2. Avoiding entropy
    - This codebase will outlive you. Every shortcut you take becomes someone else's burden. Every hack compounds into technical debt that slows the whole team down.
    - You are not just writing code. You are shaping the future of this
@@ -173,3 +173,4 @@ bd sync               # Sync with git
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+

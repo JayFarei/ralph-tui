@@ -1,0 +1,71 @@
+{
+  "name": "ralph-tui",
+  "version": "0.0.1",
+  "description": "Ralph TUI - AI Agent Loop Orchestrator",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "bin": {
+    "ralph-tui": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "bun build ./src/cli.tsx --outdir ./dist --target bun --sourcemap=external && bun build ./src/index.ts --outdir ./dist --target bun --sourcemap=external",
+    "build:types": "tsc --emitDeclarationOnly --declaration --outDir dist",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "clean": "rm -rf dist",
+    "dev": "bun run ./src/cli.tsx",
+    "prepublishOnly": "bun run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "tui",
+    "ai",
+    "agent",
+    "orchestrator",
+    "terminal",
+    "cli"
+  ],
+  "author": "subsy",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/subsy/ralph-tui.git"
+  },
+  "homepage": "https://github.com/subsy/ralph-tui",
+  "bugs": {
+    "url": "https://github.com/subsy/ralph-tui/issues"
+  },
+  "packageManager": "bun@1.2.17",
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/handlebars": "^4.1.0",
+    "@types/node": "^25.0.6",
+    "@types/react": "^19.2.8",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
+    "eslint": "^9.39.2",
+    "react": "^19.2.3",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.1.72",
+    "@opentui/react": "^0.1.72",
+    "handlebars": "^4.7.8",
+    "smol-toml": "^1.6.0",
+    "yaml": "^2.8.2",
+    "zod": "^4.3.5"
+  }
+}
