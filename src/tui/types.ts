@@ -66,6 +66,7 @@ export interface TaskItem {
 /**
  * Props for the Header component.
  * Compact header shows only essential info: status, current task, progress, elapsed time.
+ * Also displays selected agent and tracker plugin names for configuration visibility.
  */
 export interface HeaderProps {
   /** Current Ralph execution status */
@@ -80,6 +81,10 @@ export interface HeaderProps {
   completedTasks?: number;
   /** Total number of tasks (for progress display) */
   totalTasks?: number;
+  /** Selected agent plugin name (e.g., "claude", "opencode") */
+  agentName?: string;
+  /** Selected tracker plugin name (e.g., "beads", "beads-bv", "json") */
+  trackerName?: string;
 }
 
 /**

@@ -233,8 +233,9 @@ export function RunApp({
   const [currentOutput, setCurrentOutput] = useState('');
   const [elapsedTime, setElapsedTime] = useState(0);
   const [epicName] = useState('Ralph');
-  const [trackerName] = useState('beads');
-  const [agentName] = useState('claude');
+  // Derive agent/tracker names from config - these are displayed in the header
+  const agentName = storedConfig?.defaultAgent || storedConfig?.agent || 'claude';
+  const trackerName = storedConfig?.defaultTracker || storedConfig?.tracker || trackerType || 'beads';
   // Dashboard visibility state (off by default for compact header design)
   const [showDashboard, setShowDashboard] = useState(false);
   // Completed iterations count for ETA calculation
@@ -785,7 +786,7 @@ export function RunApp({
         backgroundColor: colors.bg.primary,
       }}
     >
-      {/* Header - compact design showing only essential info */}
+      {/* Header - compact design showing essential info + agent/tracker */}
       <Header
         status={status}
         elapsedTime={elapsedTime}
@@ -793,6 +794,8 @@ export function RunApp({
         currentTaskTitle={currentTaskTitle}
         completedTasks={completedTasks}
         totalTasks={totalTasks}
+        agentName={agentName}
+        trackerName={trackerName}
       />
 
       {/* Progress Dashboard - toggleable with 'd' key */}

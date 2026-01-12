@@ -74,14 +74,12 @@ function MiniProgressBar({
 }
 
 /**
- * Compact header component showing only essential information:
+ * Compact header component showing essential information:
  * - Status indicator and label
  * - Current task (when executing)
+ * - Agent and tracker plugin names (for configuration visibility)
  * - Progress (X/Y tasks) with mini bar
  * - Elapsed time
- *
- * Epic name, tracker name, and agent name are deliberately omitted
- * from the header - they're accessible via settings or the detailed dashboard.
  */
 export function Header({
   status,
@@ -90,6 +88,8 @@ export function Header({
   currentTaskTitle,
   completedTasks = 0,
   totalTasks = 0,
+  agentName,
+  trackerName,
 }: HeaderProps): ReactNode {
   const statusDisplay = getStatusDisplay(status);
   const formattedTime = formatElapsedTime(elapsedTime);
@@ -131,8 +131,16 @@ export function Header({
         )}
       </box>
 
-      {/* Right section: Progress (X/Y) with mini bar + elapsed time */}
+      {/* Right section: Agent/Tracker + Progress (X/Y) with mini bar + elapsed time */}
       <box style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+        {/* Agent and tracker plugin names */}
+        {(agentName || trackerName) && (
+          <text fg={colors.fg.muted}>
+            {agentName && <span fg={colors.accent.secondary}>{agentName}</span>}
+            {agentName && trackerName && <span fg={colors.fg.dim}>/</span>}
+            {trackerName && <span fg={colors.accent.tertiary}>{trackerName}</span>}
+          </text>
+        )}
         <box style={{ flexDirection: 'row', gap: 1, alignItems: 'center' }}>
           <MiniProgressBar completed={completedTasks} total={totalTasks} width={8} />
           <text fg={colors.fg.secondary}>
