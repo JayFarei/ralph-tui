@@ -6,7 +6,8 @@
 
 import type { ReactNode } from 'react';
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useKeyboard } from '@opentui/react';
+import { useKeyboard, useRenderer } from '@opentui/react';
+import type { PasteEvent } from '@opentui/core';
 import { writeFile, mkdir, access } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -480,6 +481,32 @@ Read the PRD and create the appropriate tasks.`;
   );
 
   useKeyboard(handleKeyboard);
+
+  // Get renderer for paste event handling
+  const renderer = useRenderer();
+
+  // Handle paste events
+  useEffect(() => {
+    const handlePaste = (event: PasteEvent) => {
+      // Don't handle paste while loading or in quit dialog
+      if (isLoading || showQuitConfirm) return;
+
+      // Filter to printable characters only (same logic as keyboard input)
+      const printableChars = event.text
+        .split('')
+        .filter((char) => char.charCodeAt(0) >= 32)
+        .join('');
+
+      if (printableChars.length > 0) {
+        setInputValue((prev) => prev + printableChars);
+      }
+    };
+
+    renderer.keyInput.on('paste', handlePaste);
+    return () => {
+      renderer.keyInput.off('paste', handlePaste);
+    };
+  }, [renderer, isLoading, showQuitConfirm]);
 
   // Determine hint text based on phase
   const hint =

@@ -195,14 +195,19 @@ export class ChatEngine {
 
       if (result.status !== 'completed') {
         this.setStatus('error');
+        // Build error message with available details
+        const errorDetails = result.error || result.stderr || `Execution ${result.status}`;
+        const errorMsg = result.exitCode !== undefined
+          ? `${errorDetails} (exit code ${result.exitCode})`
+          : errorDetails;
         this.emit({
           type: 'error:occurred',
           timestamp: new Date(),
-          error: result.error || `Execution ${result.status}`,
+          error: errorMsg,
         });
         return {
           success: false,
-          error: result.error || `Execution ${result.status}`,
+          error: errorMsg,
           durationMs,
         };
       }
